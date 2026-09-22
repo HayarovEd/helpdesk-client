@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
-  API_BASE_URL,
   BACKEND_BASE_URL,
   closeChat,
   createChat,
