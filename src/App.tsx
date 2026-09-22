@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   closeChat,
@@ -26,7 +26,14 @@ const initialProfile: ManualAuthInput = {
 }
 
 function flattenMessages(chat: Chat | null) {
-  return chat?.connections?.flatMap((connection) => connection.messages ?? []) ?? []
+  return (chat?.connections?.flatMap((connection) => connection.messages ?? []) ?? [])
+    .map((message, index) => ({ message, index }))
+    .sort((left, right) => {
+      const leftDate = left.message.date ? Date.parse(left.message.date) : Number.POSITIVE_INFINITY
+      const rightDate = right.message.date ? Date.parse(right.message.date) : Number.POSITIVE_INFINITY
+      return leftDate - rightDate || left.index - right.index
+    })
+    .map(({ message }) => message)
 }
 
 function App() {
@@ -37,8 +44,14 @@ function App() {
   const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const messagesRef = useRef<HTMLDivElement>(null)
 
   const messages = useMemo(() => flattenMessages(chat), [chat])
+
+  useEffect(() => {
+    const container = messagesRef.current
+    if (container) container.scrollTop = container.scrollHeight
+  }, [messages])
 
   useEffect(() => {
     if (!token || !profile.login) return
@@ -252,7 +265,7 @@ function App() {
           <div className="empty"><div className="empty-icon">✦</div><h2>Новый чат</h2><p className="muted">Создайте обращение, и специалист ответит в этом окне.</p><form onSubmit={handleCreateChat}><button disabled={busy}>{busy ? 'Создание…' : 'Создать чат'}</button></form></div>
         ) : (
           <>
-            <div className="messages">
+            <div className="messages" ref={messagesRef}>
               {messages.length === 0 ? <p className="muted empty-line">Сообщений пока нет</p> : messages.map((message, index) => <article className={`message ${message.isSupport ? 'support' : 'client'}`} key={message.id ?? index}><p>{message.text}</p>{message.date && <time>{new Date(message.date).toLocaleString()}</time>}</article>)}
             </div>
             {error && <p className="error inline">{error}</p>}
