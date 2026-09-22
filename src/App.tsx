@@ -274,7 +274,7 @@ function ChatPage({
           token: fcmToken,
           device_id: getWebDeviceId(),
           device_name: navigator.userAgent,
-          platform: 'web',
+          platform: 'FCM',
         }, token)
       })
       .catch((cause) => {

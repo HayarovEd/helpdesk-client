@@ -100,7 +100,7 @@ Content-Type: application/json
   "token": "<FCM token>",
   "device_id": "<стабильный идентификатор браузера>",
   "device_name": "<user agent>",
-  "platform": "web"
+  "platform": "FCM"
 }
 ```
 
