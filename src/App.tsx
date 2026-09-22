@@ -39,9 +39,15 @@ function flattenMessages(chat: Chat | null) {
 
 function fileUrl(file: HelpdeskFile) {
   if (!file.image_url) return ''
-  if (/^https?:\/\//i.test(file.image_url)) return file.image_url
-  const path = file.image_url.startsWith('/') ? file.image_url : `/${file.image_url}`
-  return API_BASE_URL ? new URL(path, BACKEND_BASE_URL).toString() : path
+  if (/^https?:\/\//i.test(file.image_url)) {
+    const absoluteUrl = new URL(file.image_url)
+    const backendUrl = new URL(BACKEND_BASE_URL)
+    if (absoluteUrl.host === backendUrl.host) {
+      return `${absoluteUrl.pathname}${absoluteUrl.search}`
+    }
+    return file.image_url
+  }
+  return file.image_url.startsWith('/') ? file.image_url : `/${file.image_url}`
 }
 
 function formatFileSize(size?: number) {
@@ -90,7 +96,7 @@ function isPreviewable(file: HelpdeskFile) {
 
 function FilePreview({ file, token, expanded = false }: { file: HelpdeskFile; token: string; expanded?: boolean }) {
   const [resourceUrl, setResourceUrl] = useState('')
-  const [loadError, setLoadError] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const mimeType = file.mime_type ?? ''
 
   useEffect(() => {
@@ -101,20 +107,20 @@ function FilePreview({ file, token, expanded = false }: { file: HelpdeskFile; to
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((response) => {
-        if (!response.ok) throw new Error(`File request failed (${response.status})`)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
         return response.blob()
       })
       .then((blob) => {
         objectUrl = URL.createObjectURL(blob)
         setResourceUrl(objectUrl)
       })
-      .catch(() => setLoadError(true))
+      .catch((cause) => setLoadError(cause instanceof Error ? cause.message : 'Не удалось загрузить файл'))
     return () => {
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [file, token])
 
-  if (loadError) return <span className="file-icon">!</span>
+  if (loadError) return <span className="file-icon" title={loadError}>!</span>
   if (!resourceUrl) return <span className="file-icon">…</span>
 
   if (imageMimeTypes.has(mimeType)) {
