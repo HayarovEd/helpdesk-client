@@ -1,5 +1,7 @@
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? ''
+export const BACKEND_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://10.222.222.174:9092'
 
 export type ExternalAuthInput = {
   name: string

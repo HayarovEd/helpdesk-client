@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   API_BASE_URL,
+  BACKEND_BASE_URL,
   closeChat,
   createChat,
   getChat,
@@ -38,7 +39,9 @@ function flattenMessages(chat: Chat | null) {
 
 function fileUrl(file: HelpdeskFile) {
   if (!file.image_url) return ''
-  return new URL(file.image_url, API_BASE_URL || window.location.origin).toString()
+  if (/^https?:\/\//i.test(file.image_url)) return file.image_url
+  const path = file.image_url.startsWith('/') ? file.image_url : `/${file.image_url}`
+  return API_BASE_URL ? new URL(path, BACKEND_BASE_URL).toString() : path
 }
 
 function formatFileSize(size?: number) {

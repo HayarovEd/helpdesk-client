@@ -10,6 +10,18 @@ export default defineConfig({
         target: 'http://10.222.222.174:9092',
         changeOrigin: true,
       },
+      '/files': {
+        target: 'http://10.222.222.174:9092',
+        changeOrigin: true,
+      },
+      '/uploads': {
+        target: 'http://10.222.222.174:9092',
+        changeOrigin: true,
+      },
+      '/media': {
+        target: 'http://10.222.222.174:9092',
+        changeOrigin: true,
+      },
     },
   },
 })
