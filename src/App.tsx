@@ -3,13 +3,13 @@ import type { FormEvent } from 'react'
 import {
   BACKEND_BASE_URL,
   closeChat,
+  chatWebSocketUrl,
   createChat,
   getChat,
   getUserChats,
   loginFromApp,
   logout,
   sendMessage,
-  WEBSOCKET_BASE_URL,
 } from './api'
 import type { Chat, ChatCreateInput, ExternalAuthInput, HelpdeskFile, ManualAuthInput } from './api'
 import './App.css'
@@ -264,7 +264,7 @@ function App() {
 
     const connect = () => {
       if (stopped) return
-      socket = new WebSocket(`${WEBSOCKET_BASE_URL}/ws/chats/${chat.id}/messages`)
+      socket = new WebSocket(chatWebSocketUrl(chat.id))
       socket.onmessage = (event) => {
         try {
           const update = JSON.parse(event.data) as {

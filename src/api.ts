@@ -3,7 +3,15 @@ export const API_BASE_URL =
 export const BACKEND_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://10.222.222.174:9092'
 export const WEBSOCKET_BASE_URL =
-  import.meta.env.VITE_WEBSOCKET_BASE_URL || BACKEND_BASE_URL.replace(/^http/, 'ws')
+  import.meta.env.VITE_WEB_SOCKET_URL ||
+  import.meta.env.VITE_WEBSOCKET_BASE_URL ||
+  BACKEND_BASE_URL.replace(/^http/, 'ws')
+
+export function chatWebSocketUrl(chatId: string) {
+  const base = WEBSOCKET_BASE_URL.replace(/\/+$/, '')
+  const chatsPath = base.endsWith('/ws') ? `${base}/chats` : `${base}/ws/chats`
+  return `${chatsPath}/${encodeURIComponent(chatId)}/messages`
+}
 
 export type ExternalAuthInput = {
   name: string
