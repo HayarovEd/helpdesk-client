@@ -273,7 +273,15 @@ function App() {
             path?: string
           }
           if (update.event === 'UPDATED' && update.path?.startsWith('/chats') && update.data?.id === chat.id) {
-            setChat(update.data)
+            void getChat(chat.id, token)
+              .then((latestChat) => {
+                if (!stopped) setChat(latestChat)
+              })
+              .catch((cause) => {
+                if (!stopped) {
+                  setError(cause instanceof Error ? cause.message : 'Не удалось обновить сообщения')
+                }
+              })
           }
         } catch {
           setError('Получено некорректное сообщение WebSocket.')
