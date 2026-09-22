@@ -17,6 +17,7 @@ import './App.css'
 
 const allowedHostOrigin = import.meta.env.VITE_HOST_ORIGIN ?? ''
 const authMessageType = 'helpdesk-auth'
+const logoutMessageType = 'helpdesk-logout'
 const unregisteredPath = '/unregistered-login'
 
 const initialProfile: ManualAuthInput = {
@@ -186,14 +187,17 @@ function ChatPage({
   initialToken = null,
   initialProfile: providedProfile = initialProfile,
   initialChat = null,
+  authMode = 'none',
 }: {
   initialToken?: string | null
   initialProfile?: ManualAuthInput
   initialChat?: Chat | null
+  authMode?: 'none' | 'external' | 'unregistered'
 }) {
   const [profile, setProfile] = useState(providedProfile)
   const [token, setToken] = useState<string | null>(initialToken)
   const [chat, setChat] = useState<Chat | null>(initialChat)
+  const [sessionAuthMode, setSessionAuthMode] = useState(authMode)
   const [text, setText] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
@@ -267,6 +271,7 @@ function ChatPage({
         const nextToken = await loginFromApp(nextProfile)
         setProfile(nextProfile)
         setToken(nextToken)
+        setSessionAuthMode('external')
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : 'Не удалось войти через внешнее приложение')
       } finally {
@@ -335,6 +340,7 @@ function ChatPage({
     try {
       const nextToken = await loginFromApp(profile)
       setToken(nextToken)
+      setSessionAuthMode('external')
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Не удалось войти')
     } finally {
@@ -397,6 +403,18 @@ function ChatPage({
     setText('')
     setFiles([])
     setPreviewFile(null)
+    if (sessionAuthMode === 'unregistered') {
+      window.location.assign(unregisteredPath)
+      return
+    }
+    if (sessionAuthMode === 'external') {
+      const targetOrigin = allowedHostOrigin || '*'
+      window.parent.postMessage({ type: logoutMessageType }, targetOrigin)
+      if (window.opener && window.opener !== window) {
+        window.opener.postMessage({ type: logoutMessageType }, targetOrigin)
+        window.close()
+      }
+    }
   }
 
   if (!token) {
@@ -502,6 +520,7 @@ function UnregisteredLoginPage() {
           token: '',
         }}
         initialChat={authorized.chat}
+        authMode="unregistered"
       />
     )
   }
