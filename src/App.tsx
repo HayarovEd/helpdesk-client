@@ -9,7 +9,7 @@ import {
   logout,
   sendMessage,
 } from './api'
-import type { Chat, ChatCreateInput, ExternalAuthInput, ManualAuthInput } from './api'
+import type { Chat, ChatCreateInput, ExternalAuthInput, HelpdeskFile, ManualAuthInput } from './api'
 import './App.css'
 
 const allowedHostOrigin = import.meta.env.VITE_HOST_ORIGIN ?? ''
@@ -35,6 +35,18 @@ function flattenMessages(chat: Chat | null) {
     .map(({ message }) => message)
 }
 
+function fileUrl(file: HelpdeskFile) {
+  if (!file.image_url) return ''
+  return new URL(file.image_url, window.location.origin).toString()
+}
+
+function formatFileSize(size?: number) {
+  if (!size) return ''
+  if (size < 1024) return `${size} Б`
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} КБ`
+  return `${(size / (1024 * 1024)).toFixed(1)} МБ`
+}
+
 function App() {
   const [profile, setProfile] = useState(initialProfile)
   const [token, setToken] = useState<string | null>(null)
@@ -43,6 +55,7 @@ function App() {
   const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [previewFile, setPreviewFile] = useState<HelpdeskFile | null>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
 
   const messages = useMemo(() => flattenMessages(chat), [chat])
@@ -220,6 +233,7 @@ function App() {
     setChat(null)
     setText('')
     setFiles([])
+    setPreviewFile(null)
   }
 
   if (!token) {
@@ -261,7 +275,7 @@ function App() {
         ) : (
           <>
             <div className="messages" ref={messagesRef}>
-              {messages.length === 0 ? <p className="muted empty-line">Сообщений пока нет</p> : messages.map((message, index) => <article className={`message ${message.isSupport ? 'support' : 'client'}`} key={message.id ?? index}><p>{message.text}</p>{message.date && <time>{new Date(message.date).toLocaleString()}</time>}</article>)}
+              {messages.length === 0 ? <p className="muted empty-line">Сообщений пока нет</p> : messages.map((message, index) => <article className={`message ${message.isSupport ? 'support' : 'client'}`} key={message.id ?? index}><p>{message.text}</p>{message.files?.length ? <div className="attachments">{message.files.map((file, fileIndex) => <button className="attachment" key={`${file.image_url ?? file.original_name}-${fileIndex}`} onClick={() => setPreviewFile(file)} type="button">{file.image_url && file.mime_type?.startsWith('image/') ? <img src={fileUrl(file)} alt="" /> : <span className="file-icon">↗</span>}<span className="attachment-info"><strong>{file.original_name ?? 'Файл'}</strong><small>{formatFileSize(file.file_size)}</small></span></button>)}</div> : null}{message.date && <time>{new Date(message.date).toLocaleString()}</time>}</article>)}
             </div>
             {error && <p className="error inline">{error}</p>}
             {chat.is_open !== false && <form onSubmit={handleSend} className="composer"><textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Напишите сообщение…" rows={2} /><div className="composer-actions"><label className="file-button" title="Прикрепить файл">＋<input type="file" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} /></label><span className="file-names">{files.map((file) => file.name).join(', ')}</span><button disabled={busy || !text.trim()}>{busy ? '…' : 'Отправить'}</button></div></form>}
@@ -269,6 +283,7 @@ function App() {
           </>
         )}
       </section>
+      {previewFile && <div className="preview-backdrop" role="presentation" onClick={() => setPreviewFile(null)}><section className="preview-modal" role="dialog" aria-modal="true" aria-label={previewFile.original_name ?? 'Предпросмотр файла'} onClick={(event) => event.stopPropagation()}><header><strong>{previewFile.original_name ?? 'Файл'}</strong><button type="button" className="preview-close" onClick={() => setPreviewFile(null)} aria-label="Закрыть">×</button></header>{previewFile.image_url && previewFile.mime_type?.startsWith('image/') ? <img className="preview-image" src={fileUrl(previewFile)} alt={previewFile.original_name ?? 'Предпросмотр'} /> : <div className="preview-non-image"><span className="file-icon large">↗</span><p className="muted">Предпросмотр доступен для изображений.</p></div>}<a className="download-button" href={fileUrl(previewFile)} download={previewFile.original_name}>Скачать файл</a></section></div>}
     </main>
   )
 }

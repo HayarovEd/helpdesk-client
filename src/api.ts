@@ -32,7 +32,14 @@ export type Message = {
   text: string
   date?: string
   isSupport?: boolean
-  files?: Array<{ id?: string; name?: string; url?: string }>
+  files?: HelpdeskFile[]
+}
+
+export type HelpdeskFile = {
+  image_url?: string
+  file_size?: number
+  original_name?: string
+  mime_type?: string
 }
 
 export type Chat = {
