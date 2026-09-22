@@ -14,11 +14,11 @@ npm run dev
 ```env
 # Для dev можно оставить пустым: Vite проксирует /api на backend.
 VITE_API_BASE_URL=
-VITE_ENABLE_MULTIPART=false
+
 VITE_HOST_ORIGIN=https://your-host.example
 ```
 
-`VITE_ENABLE_MULTIPART=true` включает отправку файлов через `multipart/form-data`. Swagger описывает бинарные файлы, но не фиксирует имена частей, поэтому режим выключен по умолчанию до подтверждения backend-контракта.
+Сообщения отправляются через `multipart/form-data`: JSON части `data` содержит `{ "text": "..." }`, а выбранные файлы передаются отдельными частями `files`. Это необходимо, потому что backend принимает сообщение через `@RequestPart`.
 
 JWT не сохраняется в `localStorage` или cookies и живёт только в памяти вкладки. Формат `login_from_app` вынесен в `src/api.ts`; поля `token` и `password` должны передаваться внешним приложением безопасным способом.
 

@@ -12,7 +12,6 @@ import {
 import type { Chat, ChatCreateInput, ExternalAuthInput, ManualAuthInput } from './api'
 import './App.css'
 
-const allowMultipart = import.meta.env.VITE_ENABLE_MULTIPART === 'true'
 const allowedHostOrigin = import.meta.env.VITE_HOST_ORIGIN ?? ''
 const authMessageType = 'helpdesk-auth'
 
@@ -180,10 +179,6 @@ function App() {
   async function handleSend(event: FormEvent) {
     event.preventDefault()
     if (!token || !chat?.id || !text.trim()) return
-    if (files.length > 0 && !allowMultipart) {
-      setError('Отправка файлов отключена: сначала подтвердите multipart-контракт backend.')
-      return
-    }
     setBusy(true)
     setError('')
     try {

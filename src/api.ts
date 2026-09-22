@@ -100,16 +100,6 @@ export async function getUserChats(login: string, token: string) {
 }
 
 export async function sendMessage(id: string, text: string, token: string, files: File[] = []) {
-  if (files.length === 0) {
-    return request<void>(`/api/chats/${id}/message/client`, {
-      method: 'POST',
-      token,
-      body: JSON.stringify({ data: { text } }),
-    })
-  }
-
-  // Swagger exposes files as binary parts but does not define their multipart names.
-  // This can be disabled until the backend confirms the expected multipart contract.
   const form = new FormData()
   form.append('data', new Blob([JSON.stringify({ text })], { type: 'application/json' }))
   files.forEach((file) => form.append('files', file, file.name))
