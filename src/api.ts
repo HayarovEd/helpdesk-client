@@ -45,6 +45,8 @@ export type ChatCreateInput = {
   message: string
 }
 
+export const UNREGISTERED_GROUP_ID = '00000000-0000-0000-0000-000000000009'
+
 export type Message = {
   id?: string
   text: string
@@ -145,10 +147,6 @@ export async function sendMessage(id: string, text: string, token: string, files
     token,
     body: form,
   })
-}
-
-export async function closeChat(id: string, token: string) {
-  return request<void>(`/api/chats/${id}/close`, { method: 'POST', token })
 }
 
 export async function logout(token: string) {

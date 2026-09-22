@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   BACKEND_BASE_URL,
-  closeChat,
   chatWebSocketUrl,
   createChat,
   getChat,
@@ -11,6 +10,7 @@ import {
   loginUnregistered,
   logout,
   sendMessage,
+  UNREGISTERED_GROUP_ID,
 } from './api'
 import type { Chat, ChatCreateInput, ExternalAuthInput, HelpdeskFile, ManualAuthInput, UnregisteredAuthInput } from './api'
 import './App.css'
@@ -182,10 +182,18 @@ function App() {
   return <ChatPage />
 }
 
-function ChatPage() {
-  const [profile, setProfile] = useState(initialProfile)
-  const [token, setToken] = useState<string | null>(null)
-  const [chat, setChat] = useState<Chat | null>(null)
+function ChatPage({
+  initialToken = null,
+  initialProfile: providedProfile = initialProfile,
+  initialChat = null,
+}: {
+  initialToken?: string | null
+  initialProfile?: ManualAuthInput
+  initialChat?: Chat | null
+}) {
+  const [profile, setProfile] = useState(providedProfile)
+  const [token, setToken] = useState<string | null>(initialToken)
+  const [chat, setChat] = useState<Chat | null>(initialChat)
   const [text, setText] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
@@ -201,7 +209,7 @@ function ChatPage() {
   }, [messages])
 
   useEffect(() => {
-    if (!token || !profile.login) return
+    if (!token || !profile.login || initialChat) return
     let cancelled = false
     setBusy(true)
     getUserChats(profile.login, token)
@@ -229,7 +237,7 @@ function ChatPage() {
     return () => {
       cancelled = true
     }
-  }, [profile.login, token])
+  }, [initialChat, profile.login, token])
 
   useEffect(() => {
     async function receiveHostAuth(event: MessageEvent<{
@@ -375,20 +383,6 @@ function ChatPage() {
     }
   }
 
-  async function handleClose() {
-    if (!token || !chat?.id) return
-    setBusy(true)
-    setError('')
-    try {
-      await closeChat(chat.id, token)
-      setChat({ ...chat, is_open: false })
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Не удалось закрыть чат')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   async function handleLogout() {
     if (token) {
       try {
@@ -448,7 +442,6 @@ function ChatPage() {
             </div>
             {error && <p className="error inline">{error}</p>}
             {chat.is_open !== false && <form onSubmit={handleSend} className="composer"><textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Напишите сообщение…" rows={2} /><div className="composer-actions"><label className="file-button" title="Прикрепить файл">＋<input type="file" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} /></label><span className="file-names">{files.map((file) => file.name).join(', ')}</span><button disabled={busy || !text.trim()}>{busy ? '…' : 'Отправить'}</button></div></form>}
-            <button className="close-button" disabled={busy || chat.is_open === false} onClick={handleClose}>Закрыть чат</button>
           </>
         )}
       </section>
@@ -460,7 +453,7 @@ function ChatPage() {
 function UnregisteredLoginPage() {
   const [profile, setProfile] = useState(initialUnregisteredProfile)
   const [busy, setBusy] = useState(false)
-  const [authorized, setAuthorized] = useState(false)
+  const [authorized, setAuthorized] = useState<{ token: string; chat: Chat } | null>(null)
   const [error, setError] = useState('')
 
   function updateProfile(field: keyof UnregisteredAuthInput, value: string) {
@@ -473,7 +466,18 @@ function UnregisteredLoginPage() {
     setError('')
     try {
       const token = await loginUnregistered(profile)
-      setAuthorized(true)
+      const chat = await createChat(
+        {
+          name: profile.name,
+          login: profile.email,
+          email: profile.email,
+          phone: profile.phone,
+          message: 'Новый запрос в поддержку',
+        },
+        token,
+        UNREGISTERED_GROUP_ID,
+      )
+      setAuthorized({ token, chat })
       window.opener?.postMessage(
         { type: 'helpdesk-unregistered-auth', payload: { token } },
         allowedHostOrigin || '*',
@@ -485,26 +489,36 @@ function UnregisteredLoginPage() {
     }
   }
 
+  if (authorized) {
+    return (
+      <ChatPage
+        initialToken={authorized.token}
+        initialProfile={{
+          name: profile.name,
+          login: profile.email,
+          email: profile.email,
+          operId: UNREGISTERED_GROUP_ID,
+          password: '',
+          token: '',
+        }}
+        initialChat={authorized.chat}
+      />
+    )
+  }
+
   return (
     <main className="shell">
       <section className="card auth-card">
         <div className="brand"><span className="brand-mark">?</span><span>Helpdesk</span></div>
         <p className="eyebrow">Гостевой доступ</p>
-        <h1>{authorized ? 'Вы авторизованы' : 'Войти в поддержку'}</h1>
-        {authorized ? (
-          <div className="stack">
-            <p className="muted">Авторизация прошла успешно. Можно закрыть эту страницу и вернуться в приложение.</p>
-            <button type="button" onClick={() => window.close()}>Закрыть страницу</button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="stack">
-            <label>Имя<input required value={profile.name} onChange={(event) => updateProfile('name', event.target.value)} /></label>
-            <label>Email<input required type="email" value={profile.email} onChange={(event) => updateProfile('email', event.target.value)} /></label>
-            <label>Телефон<input required value={profile.phone} onChange={(event) => updateProfile('phone', event.target.value)} /></label>
-            {error && <p className="error">{error}</p>}
-            <button disabled={busy}>{busy ? 'Авторизация…' : 'Войти'}</button>
-          </form>
-        )}
+        <h1>Войти в поддержку</h1>
+        <form onSubmit={handleSubmit} className="stack">
+          <label>Имя<input required value={profile.name} onChange={(event) => updateProfile('name', event.target.value)} /></label>
+          <label>Email<input required type="email" value={profile.email} onChange={(event) => updateProfile('email', event.target.value)} /></label>
+          <label>Телефон<input required value={profile.phone} onChange={(event) => updateProfile('phone', event.target.value)} /></label>
+          {error && <p className="error">{error}</p>}
+          <button disabled={busy}>{busy ? 'Авторизация…' : 'Войти'}</button>
+        </form>
         <p className="footnote">JWT хранится только в памяти текущей страницы.</p>
       </section>
     </main>
