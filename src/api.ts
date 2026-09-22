@@ -2,6 +2,8 @@ export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? ''
 export const BACKEND_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 'http://10.222.222.174:9092'
+export const WEBSOCKET_BASE_URL =
+  import.meta.env.VITE_WEBSOCKET_BASE_URL || BACKEND_BASE_URL.replace(/^http/, 'ws')
 
 export type ExternalAuthInput = {
   name: string
@@ -39,6 +41,8 @@ export type Message = {
 
 export type HelpdeskFile = {
   image_url?: string
+  file_url?: string
+  fileUrl?: string
   file_size?: number
   original_name?: string
   mime_type?: string

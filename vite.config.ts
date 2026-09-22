@@ -22,6 +22,11 @@ export default defineConfig({
         target: 'http://10.222.222.174:9092',
         changeOrigin: true,
       },
+      '/ws': {
+        target: 'ws://10.222.222.174:9092',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 })

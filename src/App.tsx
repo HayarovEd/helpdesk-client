@@ -9,6 +9,7 @@ import {
   loginFromApp,
   logout,
   sendMessage,
+  WEBSOCKET_BASE_URL,
 } from './api'
 import type { Chat, ChatCreateInput, ExternalAuthInput, HelpdeskFile, ManualAuthInput } from './api'
 import './App.css'
@@ -256,14 +257,40 @@ function App() {
 
   useEffect(() => {
     if (!token || !chat?.id) return
-    const timer = window.setInterval(async () => {
-      try {
-        setChat(await getChat(chat.id, token))
-      } catch {
-        // Polling errors are surfaced on the next explicit action to avoid flicker.
+
+    let socket: WebSocket | null = null
+    let reconnectTimer: number | undefined
+    let stopped = false
+
+    const connect = () => {
+      if (stopped) return
+      socket = new WebSocket(`${WEBSOCKET_BASE_URL}/ws/chats/${chat.id}/messages`)
+      socket.onmessage = (event) => {
+        try {
+          const update = JSON.parse(event.data) as {
+            data?: Chat
+            event?: string
+            path?: string
+          }
+          if (update.event === 'UPDATED' && update.path?.startsWith('/chats') && update.data?.id === chat.id) {
+            setChat(update.data)
+          }
+        } catch {
+          setError('Получено некорректное сообщение WebSocket.')
+        }
       }
-    }, 10_000)
-    return () => window.clearInterval(timer)
+      socket.onclose = () => {
+        if (!stopped) reconnectTimer = window.setTimeout(connect, 5000)
+      }
+      socket.onerror = () => socket?.close()
+    }
+
+    connect()
+    return () => {
+      stopped = true
+      if (reconnectTimer) window.clearTimeout(reconnectTimer)
+      socket?.close()
+    }
   }, [chat?.id, token])
 
   function updateProfile(field: keyof ManualAuthInput, value: string | number) {
