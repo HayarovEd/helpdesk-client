@@ -55,3 +55,17 @@ widgetWindow.postMessage({
 После загрузки чата клиент подключается к `ws://10.222.222.174:9092/ws/chats/{chatId}/messages`. Токен WebSocket не используется. Обновления применяются только для событий с `event: "UPDATED"` и путём `/chats...`; при разрыве соединение переподключается через 5 секунд. Для другого адреса можно задать `VITE_WEBSOCKET_BASE_URL`.
 
 Для конфигурации Android-формата задайте `VITE_WEB_SOCKET_URL=ws://10.222.222.174:9092/ws`; клиент сам добавит `/chats/{chatId}/messages`.
+
+## Отдельная авторизация незарегистрированного пользователя
+
+Откройте `/unregistered-login`. Страница вызывает `POST /api/auth/unregistered_login` с телом:
+
+```json
+{
+  "name": "Иван",
+  "email": "ivan@example.com",
+  "phone": "+79990000000"
+}
+```
+
+После успешной авторизации страница отправляет родительскому окну сообщение `helpdesk-unregistered-auth` с JWT через `postMessage`. JWT не сохраняется в `localStorage` или cookies.

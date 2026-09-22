@@ -31,6 +31,12 @@ export type ManualAuthInput = {
   token: string
 }
 
+export type UnregisteredAuthInput = {
+  name: string
+  email: string
+  phone: string
+}
+
 export type ChatCreateInput = {
   name: string
   login: string
@@ -96,9 +102,19 @@ export async function loginFromApp(input: ExternalAuthInput): Promise<string> {
     password: input.password,
     token: input.token,
   }
+
   const result = await request<{ token: string }>('/api/auth/login_from_app', {
     method: 'POST',
     body: JSON.stringify(requestBody),
+  })
+  if (!result?.token) throw new Error('Сервис авторизации не вернул JWT')
+  return result.token
+}
+
+export async function loginUnregistered(input: UnregisteredAuthInput): Promise<string> {
+  const result = await request<{ token: string }>('/api/auth/unregistered_login', {
+    method: 'POST',
+    body: JSON.stringify(input),
   })
   if (!result?.token) throw new Error('Сервис авторизации не вернул JWT')
   return result.token

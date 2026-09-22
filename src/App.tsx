@@ -8,14 +8,16 @@ import {
   getChat,
   getUserChats,
   loginFromApp,
+  loginUnregistered,
   logout,
   sendMessage,
 } from './api'
-import type { Chat, ChatCreateInput, ExternalAuthInput, HelpdeskFile, ManualAuthInput } from './api'
+import type { Chat, ChatCreateInput, ExternalAuthInput, HelpdeskFile, ManualAuthInput, UnregisteredAuthInput } from './api'
 import './App.css'
 
 const allowedHostOrigin = import.meta.env.VITE_HOST_ORIGIN ?? ''
 const authMessageType = 'helpdesk-auth'
+const unregisteredPath = '/unregistered-login'
 
 const initialProfile: ManualAuthInput = {
   name: '',
@@ -24,6 +26,12 @@ const initialProfile: ManualAuthInput = {
   operId: '',
   password: '',
   token: '',
+}
+
+const initialUnregisteredProfile: UnregisteredAuthInput = {
+  name: '',
+  email: '',
+  phone: '',
 }
 
 function flattenMessages(chat: Chat | null) {
@@ -168,6 +176,13 @@ function FilePreview({ file, token, expanded = false }: { file: HelpdeskFile; to
 }
 
 function App() {
+  if (window.location.pathname === unregisteredPath) {
+    return <UnregisteredLoginPage />
+  }
+  return <ChatPage />
+}
+
+function ChatPage() {
   const [profile, setProfile] = useState(initialProfile)
   const [token, setToken] = useState<string | null>(null)
   const [chat, setChat] = useState<Chat | null>(null)
@@ -438,6 +453,60 @@ function App() {
         )}
       </section>
       {previewFile && <div className="preview-backdrop" role="presentation" onClick={() => setPreviewFile(null)}><section className="preview-modal" role="dialog" aria-modal="true" aria-label={previewFile.original_name ?? 'Предпросмотр файла'} onClick={(event) => event.stopPropagation()}><header><strong>{previewFile.original_name ?? 'Файл'}</strong><button type="button" className="preview-close" onClick={() => setPreviewFile(null)} aria-label="Закрыть">×</button></header>{hasFileUrl(previewFile) && isPreviewable(previewFile) ? <FilePreview file={previewFile} token={token} expanded /> : <div className="preview-non-image"><DocumentIcon mimeType={previewFile.mime_type ?? ''} large /><p className="muted">Предпросмотр недоступен для этого типа файла.</p></div>}<a className="download-button" href={fileUrl(previewFile)} download={previewFile.original_name}>Скачать файл</a></section></div>}
+    </main>
+  )
+}
+
+function UnregisteredLoginPage() {
+  const [profile, setProfile] = useState(initialUnregisteredProfile)
+  const [busy, setBusy] = useState(false)
+  const [authorized, setAuthorized] = useState(false)
+  const [error, setError] = useState('')
+
+  function updateProfile(field: keyof UnregisteredAuthInput, value: string) {
+    setProfile((current) => ({ ...current, [field]: value }))
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      const token = await loginUnregistered(profile)
+      setAuthorized(true)
+      window.opener?.postMessage(
+        { type: 'helpdesk-unregistered-auth', payload: { token } },
+        allowedHostOrigin || '*',
+      )
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Не удалось войти')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <main className="shell">
+      <section className="card auth-card">
+        <div className="brand"><span className="brand-mark">?</span><span>Helpdesk</span></div>
+        <p className="eyebrow">Гостевой доступ</p>
+        <h1>{authorized ? 'Вы авторизованы' : 'Войти в поддержку'}</h1>
+        {authorized ? (
+          <div className="stack">
+            <p className="muted">Авторизация прошла успешно. Можно закрыть эту страницу и вернуться в приложение.</p>
+            <button type="button" onClick={() => window.close()}>Закрыть страницу</button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="stack">
+            <label>Имя<input required value={profile.name} onChange={(event) => updateProfile('name', event.target.value)} /></label>
+            <label>Email<input required type="email" value={profile.email} onChange={(event) => updateProfile('email', event.target.value)} /></label>
+            <label>Телефон<input required value={profile.phone} onChange={(event) => updateProfile('phone', event.target.value)} /></label>
+            {error && <p className="error">{error}</p>}
+            <button disabled={busy}>{busy ? 'Авторизация…' : 'Войти'}</button>
+          </form>
+        )}
+        <p className="footnote">JWT хранится только в памяти текущей страницы.</p>
+      </section>
     </main>
   )
 }
