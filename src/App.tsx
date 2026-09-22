@@ -213,7 +213,8 @@ function ChatPage({
   const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [notificationError, setNotificationError] = useState('')
+  const notificationUnsubscribeRef = useRef<(() => void) | undefined>(undefined)
+  const notificationStartedRef = useRef(false)
   const [previewFile, setPreviewFile] = useState<HelpdeskFile | null>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
 
@@ -256,9 +257,8 @@ function ChatPage({
   }, [initialChat, profile.login, token])
 
   useEffect(() => {
-    if (!token) return
-    let cancelled = false
-    let unsubscribe: (() => void) | undefined
+    if (!token || !chat?.id || notificationStartedRef.current) return
+    notificationStartedRef.current = true
 
     registerFirebaseMessaging((notification) => {
       if (notification.title || notification.body) {
@@ -268,8 +268,8 @@ function ChatPage({
         })
       }
     })
-      .then(({ fcmToken, unsubscribe: stopListening }) => {
-        unsubscribe = stopListening
+      .then(({ fcmToken, unsubscribe }) => {
+        notificationUnsubscribeRef.current = unsubscribe
         return registerFcmToken({
           token: fcmToken,
           device_id: getWebDeviceId(),
@@ -277,17 +277,14 @@ function ChatPage({
           platform: 'FCM',
         }, token)
       })
-      .catch((cause) => {
-        if (!cancelled) {
-          setNotificationError(cause instanceof Error ? cause.message : 'Не удалось включить push-уведомления')
-        }
+      .catch(() => {
+        notificationStartedRef.current = false
       })
+  }, [chat?.id, token])
 
-    return () => {
-      cancelled = true
-      unsubscribe?.()
-    }
-  }, [token])
+  useEffect(() => () => {
+    notificationUnsubscribeRef.current?.()
+  }, [])
 
   useEffect(() => {
     async function receiveHostAuth(event: MessageEvent<{
@@ -491,7 +488,7 @@ function ChatPage({
     <main className="shell">
       <section className="widget card">
         <header className="widget-header">
-          <div><div className="brand"><span className="brand-mark">?</span><span>Helpdesk</span></div><p className="muted">Поддержка онлайн</p>{notificationError && <p className="error">{notificationError}</p>}</div>
+          <div><div className="brand"><span className="brand-mark">?</span><span>Helpdesk</span></div><p className="muted">Поддержка онлайн</p></div>
           <div className="header-actions">
             {chat && <span className={`status ${chat.is_open === false ? 'closed' : ''}`}>{chat.is_open === false ? 'Закрыт' : 'Открыт'}</span>}
             <button className="logout-button" onClick={handleLogout}>Выйти</button>
