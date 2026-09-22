@@ -97,10 +97,26 @@ const documentMimeTypes = new Set([
   'application/rtf',
 ])
 
+const documentLabels: Record<string, string> = {
+  'application/vnd.ms-excel': 'XLS',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'XLSX',
+  'application/vnd.ms-powerpoint': 'PPT',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'PPTX',
+  'application/msword': 'DOC',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'DOCX',
+  'application/pdf': 'PDF',
+  'application/rtf': 'RTF',
+  'text/plain': 'TXT',
+}
+
 function isPreviewable(file: HelpdeskFile) {
   return imageMimeTypes.has(file.mime_type ?? '') ||
     videoMimeTypes.has(file.mime_type ?? '') ||
     documentMimeTypes.has(file.mime_type ?? '')
+}
+
+function DocumentIcon({ mimeType, large = false }: { mimeType: string; large?: boolean }) {
+  return <span className={`document-icon ${large ? 'large' : ''}`} aria-label={documentLabels[mimeType] ?? 'Файл'}>{documentLabels[mimeType] ?? 'ФАЙЛ'}</span>
 }
 
 function FilePreview({ file, token, expanded = false }: { file: HelpdeskFile; token: string; expanded?: boolean }) {
@@ -147,7 +163,7 @@ function FilePreview({ file, token, expanded = false }: { file: HelpdeskFile; to
   if (mimeType === 'text/plain' || mimeType === 'application/rtf') {
     return <iframe className="preview-document text-document" src={resourceUrl} title={file.original_name ?? 'Текстовый документ'} />
   }
-  return <div className="preview-non-image"><span className="file-icon large">↗</span><p className="muted">Откройте или скачайте документ для просмотра.</p></div>
+  return <div className="preview-non-image"><DocumentIcon mimeType={mimeType} large /><p className="muted">Откройте или скачайте документ для просмотра.</p></div>
 }
 
 function App() {
@@ -378,7 +394,7 @@ function App() {
         ) : (
           <>
             <div className="messages" ref={messagesRef}>
-              {messages.length === 0 ? <p className="muted empty-line">Сообщений пока нет</p> : messages.map((message, index) => <article className={`message ${message.isSupport ? 'support' : 'client'}`} key={message.id ?? index}><p>{message.text}</p>{message.files?.length ? <div className="attachments">{message.files.map((file, fileIndex) => <button className="attachment" key={`${fileUrl(file) || file.original_name}-${fileIndex}`} onClick={() => setPreviewFile(file)} type="button">{hasFileUrl(file) && isPreviewable(file) ? <FilePreview file={file} token={token} /> : <span className="file-icon">↗</span>}<span className="attachment-info"><strong>{file.original_name ?? 'Файл'}</strong><small>{formatFileSize(file.file_size)}</small></span></button>)}</div> : null}{message.date && <time>{new Date(message.date).toLocaleString()}</time>}</article>)}
+              {messages.length === 0 ? <p className="muted empty-line">Сообщений пока нет</p> : messages.map((message, index) => <article className={`message ${message.isSupport ? 'support' : 'client'}`} key={message.id ?? index}><p>{message.text}</p>{message.files?.length ? <div className="attachments">{message.files.map((file, fileIndex) => <button className="attachment" key={`${fileUrl(file) || file.original_name}-${fileIndex}`} onClick={() => setPreviewFile(file)} type="button">{hasFileUrl(file) && isPreviewable(file) ? <FilePreview file={file} token={token} /> : <DocumentIcon mimeType={file.mime_type ?? ''} /> }<span className="attachment-info"><strong>{file.original_name ?? 'Файл'}</strong><small>{formatFileSize(file.file_size)}</small></span></button>)}</div> : null}{message.date && <time>{new Date(message.date).toLocaleString()}</time>}</article>)}
             </div>
             {error && <p className="error inline">{error}</p>}
             {chat.is_open !== false && <form onSubmit={handleSend} className="composer"><textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Напишите сообщение…" rows={2} /><div className="composer-actions"><label className="file-button" title="Прикрепить файл">＋<input type="file" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} /></label><span className="file-names">{files.map((file) => file.name).join(', ')}</span><button disabled={busy || !text.trim()}>{busy ? '…' : 'Отправить'}</button></div></form>}
@@ -386,7 +402,7 @@ function App() {
           </>
         )}
       </section>
-      {previewFile && <div className="preview-backdrop" role="presentation" onClick={() => setPreviewFile(null)}><section className="preview-modal" role="dialog" aria-modal="true" aria-label={previewFile.original_name ?? 'Предпросмотр файла'} onClick={(event) => event.stopPropagation()}><header><strong>{previewFile.original_name ?? 'Файл'}</strong><button type="button" className="preview-close" onClick={() => setPreviewFile(null)} aria-label="Закрыть">×</button></header>{hasFileUrl(previewFile) && isPreviewable(previewFile) ? <FilePreview file={previewFile} token={token} expanded /> : <div className="preview-non-image"><span className="file-icon large">↗</span><p className="muted">Предпросмотр недоступен для этого типа файла.</p></div>}<a className="download-button" href={fileUrl(previewFile)} download={previewFile.original_name}>Скачать файл</a></section></div>}
+      {previewFile && <div className="preview-backdrop" role="presentation" onClick={() => setPreviewFile(null)}><section className="preview-modal" role="dialog" aria-modal="true" aria-label={previewFile.original_name ?? 'Предпросмотр файла'} onClick={(event) => event.stopPropagation()}><header><strong>{previewFile.original_name ?? 'Файл'}</strong><button type="button" className="preview-close" onClick={() => setPreviewFile(null)} aria-label="Закрыть">×</button></header>{hasFileUrl(previewFile) && isPreviewable(previewFile) ? <FilePreview file={previewFile} token={token} expanded /> : <div className="preview-non-image"><DocumentIcon mimeType={previewFile.mime_type ?? ''} large /><p className="muted">Предпросмотр недоступен для этого типа файла.</p></div>}<a className="download-button" href={fileUrl(previewFile)} download={previewFile.original_name}>Скачать файл</a></section></div>}
     </main>
   )
 }
