@@ -46,12 +46,6 @@ export type Chat = {
   connections?: Array<{ messages?: Message[] }>
 }
 
-export type Group = {
-  id: string
-  name?: string
-  oper_id?: number
-}
-
 type RequestOptions = RequestInit & { token?: string }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -95,10 +89,6 @@ export async function createChat(input: ChatCreateInput, token: string, groupId:
     token,
     body: JSON.stringify(input),
   })
-}
-
-export async function listGroups(token: string) {
-  return request<Group[]>('/api/groups', { token })
 }
 
 export async function getChat(id: string, token: string) {

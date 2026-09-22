@@ -5,7 +5,6 @@ import {
   createChat,
   getChat,
   getUserChats,
-  listGroups,
   loginFromApp,
   logout,
   sendMessage,
@@ -13,7 +12,6 @@ import {
 import type { Chat, ChatCreateInput, ExternalAuthInput, ManualAuthInput } from './api'
 import './App.css'
 
-const configuredGroupId = import.meta.env.VITE_GROUP_ID ?? ''
 const allowMultipart = import.meta.env.VITE_ENABLE_MULTIPART === 'true'
 const allowedHostOrigin = import.meta.env.VITE_HOST_ORIGIN ?? ''
 const authMessageType = 'helpdesk-auth'
@@ -35,7 +33,6 @@ function App() {
   const [profile, setProfile] = useState(initialProfile)
   const [token, setToken] = useState<string | null>(null)
   const [chat, setChat] = useState<Chat | null>(null)
-  const [groupId, setGroupId] = useState(configuredGroupId)
   const [text, setText] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
@@ -73,26 +70,6 @@ function App() {
       cancelled = true
     }
   }, [profile.login, token])
-
-  useEffect(() => {
-    if (!token || groupId) return
-    let cancelled = false
-    listGroups(token)
-      .then((groups) => {
-        if (cancelled) return
-        if (groups.length > 0) {
-          setGroupId(groups[0].id)
-        } else {
-          setError('Backend не вернул ни одной группы поддержки.')
-        }
-      })
-      .catch((cause) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : 'Не удалось получить группы поддержки')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [groupId, token])
 
   useEffect(() => {
     async function receiveHostAuth(event: MessageEvent<{
@@ -165,8 +142,8 @@ function App() {
 
   async function handleCreateChat(event: FormEvent) {
     event.preventDefault()
-    if (!token || !groupId) {
-      setError('Не найдена доступная группа поддержки.')
+    if (!token || !profile.operId) {
+      setError('Не указан ID оператора.')
       return
     }
     setBusy(true)
@@ -179,7 +156,7 @@ function App() {
       message: 'Новый запрос в поддержку',
     }
     try {
-      setChat(await createChat(input, token, groupId))
+      setChat(await createChat(input, token, profile.operId))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Не удалось создать чат')
     } finally {
@@ -200,7 +177,6 @@ function App() {
       await sendMessage(chat.id, text.trim(), token, files)
       setText('')
       setFiles([])
-      setGroupId(configuredGroupId)
       setChat(await getChat(chat.id, token))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Не удалось отправить сообщение')

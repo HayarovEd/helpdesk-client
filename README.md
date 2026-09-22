@@ -14,7 +14,6 @@ npm run dev
 ```env
 # Для dev можно оставить пустым: Vite проксирует /api на backend.
 VITE_API_BASE_URL=
-VITE_GROUP_ID=<uuid группы поддержки>
 VITE_ENABLE_MULTIPART=false
 VITE_HOST_ORIGIN=https://your-host.example
 ```
@@ -49,4 +48,4 @@ widgetWindow.postMessage({
 
 `token` из внешнего приложения передаётся в `login_from_app` только для проверки backend. JWT, возвращённый endpoint в ответе, хранится в памяти и используется отдельно для запросов чата.
 
-После получения JWT клиент вызывает `GET /api/chats/user_chats?login=<login>`. Если есть открытые чаты, выбирается самый новый по `created_date`, затем загружается его полная переписка через `GET /api/chats/{id}`. Если открытых чатов нет, отображается создание нового чата.
+После получения JWT клиент вызывает `GET /api/chats/user_chats?login=<login>`. Если есть открытые чаты, выбирается самый новый по `created_date`, затем загружается его полная переписка через `GET /api/chats/{id}`. Если открытых чатов нет, отображается создание нового чата. При создании чата параметр `groupId` получает значение `operId` из внешнего приложения.
