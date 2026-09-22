@@ -104,7 +104,7 @@ export async function sendMessage(id: string, text: string, token: string, files
     return request<void>(`/api/chats/${id}/message/client`, {
       method: 'POST',
       token,
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ data: { text } }),
     })
   }
 
