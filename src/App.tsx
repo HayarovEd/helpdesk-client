@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
+  API_BASE_URL,
   closeChat,
   createChat,
   getChat,
@@ -37,7 +38,7 @@ function flattenMessages(chat: Chat | null) {
 
 function fileUrl(file: HelpdeskFile) {
   if (!file.image_url) return ''
-  return new URL(file.image_url, window.location.origin).toString()
+  return new URL(file.image_url, API_BASE_URL || window.location.origin).toString()
 }
 
 function formatFileSize(size?: number) {
@@ -84,21 +85,46 @@ function isPreviewable(file: HelpdeskFile) {
     documentMimeTypes.has(file.mime_type ?? '')
 }
 
-function FilePreview({ file, expanded = false }: { file: HelpdeskFile; expanded?: boolean }) {
-  const url = fileUrl(file)
+function FilePreview({ file, token, expanded = false }: { file: HelpdeskFile; token: string; expanded?: boolean }) {
+  const [resourceUrl, setResourceUrl] = useState('')
+  const [loadError, setLoadError] = useState(false)
   const mimeType = file.mime_type ?? ''
 
+  useEffect(() => {
+    if (!file.image_url) return
+    let objectUrl = ''
+    const sourceUrl = fileUrl(file)
+    fetch(sourceUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error(`File request failed (${response.status})`)
+        return response.blob()
+      })
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob)
+        setResourceUrl(objectUrl)
+      })
+      .catch(() => setLoadError(true))
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [file, token])
+
+  if (loadError) return <span className="file-icon">!</span>
+  if (!resourceUrl) return <span className="file-icon">…</span>
+
   if (imageMimeTypes.has(mimeType)) {
-    return <img className={expanded ? 'preview-image' : 'attachment-preview'} src={url} alt={file.original_name ?? 'Изображение'} />
+    return <img className={expanded ? 'preview-image' : 'attachment-preview'} src={resourceUrl} alt={file.original_name ?? 'Изображение'} />
   }
   if (videoMimeTypes.has(mimeType)) {
-    return <video className={expanded ? 'preview-video' : 'attachment-preview'} src={url} controls preload="metadata" />
+    return <video className={expanded ? 'preview-video' : 'attachment-preview'} src={resourceUrl} controls preload="metadata" />
   }
   if (mimeType === 'application/pdf') {
-    return <iframe className="preview-document" src={url} title={file.original_name ?? 'PDF'} />
+    return <iframe className="preview-document" src={resourceUrl} title={file.original_name ?? 'PDF'} />
   }
   if (mimeType === 'text/plain' || mimeType === 'application/rtf') {
-    return <iframe className="preview-document text-document" src={url} title={file.original_name ?? 'Текстовый документ'} />
+    return <iframe className="preview-document text-document" src={resourceUrl} title={file.original_name ?? 'Текстовый документ'} />
   }
   return <div className="preview-non-image"><span className="file-icon large">↗</span><p className="muted">Откройте или скачайте документ для просмотра.</p></div>
 }
@@ -331,7 +357,7 @@ function App() {
         ) : (
           <>
             <div className="messages" ref={messagesRef}>
-              {messages.length === 0 ? <p className="muted empty-line">Сообщений пока нет</p> : messages.map((message, index) => <article className={`message ${message.isSupport ? 'support' : 'client'}`} key={message.id ?? index}><p>{message.text}</p>{message.files?.length ? <div className="attachments">{message.files.map((file, fileIndex) => <button className="attachment" key={`${file.image_url ?? file.original_name}-${fileIndex}`} onClick={() => setPreviewFile(file)} type="button">{file.image_url && isPreviewable(file) ? <FilePreview file={file} /> : <span className="file-icon">↗</span>}<span className="attachment-info"><strong>{file.original_name ?? 'Файл'}</strong><small>{formatFileSize(file.file_size)}</small></span></button>)}</div> : null}{message.date && <time>{new Date(message.date).toLocaleString()}</time>}</article>)}
+              {messages.length === 0 ? <p className="muted empty-line">Сообщений пока нет</p> : messages.map((message, index) => <article className={`message ${message.isSupport ? 'support' : 'client'}`} key={message.id ?? index}><p>{message.text}</p>{message.files?.length ? <div className="attachments">{message.files.map((file, fileIndex) => <button className="attachment" key={`${file.image_url ?? file.original_name}-${fileIndex}`} onClick={() => setPreviewFile(file)} type="button">{file.image_url && isPreviewable(file) ?               <FilePreview file={file} token={token} /> : <span className="file-icon">↗</span>}<span className="attachment-info"><strong>{file.original_name ?? 'Файл'}</strong><small>{formatFileSize(file.file_size)}</small></span></button>)}</div> : null}{message.date && <time>{new Date(message.date).toLocaleString()}</time>}</article>)}
             </div>
             {error && <p className="error inline">{error}</p>}
             {chat.is_open !== false && <form onSubmit={handleSend} className="composer"><textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Напишите сообщение…" rows={2} /><div className="composer-actions"><label className="file-button" title="Прикрепить файл">＋<input type="file" multiple onChange={(e) => setFiles(Array.from(e.target.files ?? []))} /></label><span className="file-names">{files.map((file) => file.name).join(', ')}</span><button disabled={busy || !text.trim()}>{busy ? '…' : 'Отправить'}</button></div></form>}
@@ -339,7 +365,7 @@ function App() {
           </>
         )}
       </section>
-      {previewFile && <div className="preview-backdrop" role="presentation" onClick={() => setPreviewFile(null)}><section className="preview-modal" role="dialog" aria-modal="true" aria-label={previewFile.original_name ?? 'Предпросмотр файла'} onClick={(event) => event.stopPropagation()}><header><strong>{previewFile.original_name ?? 'Файл'}</strong><button type="button" className="preview-close" onClick={() => setPreviewFile(null)} aria-label="Закрыть">×</button></header>{previewFile.image_url && isPreviewable(previewFile) ? <FilePreview file={previewFile} expanded /> : <div className="preview-non-image"><span className="file-icon large">↗</span><p className="muted">Предпросмотр недоступен для этого типа файла.</p></div>}<a className="download-button" href={fileUrl(previewFile)} download={previewFile.original_name}>Скачать файл</a></section></div>}
+      {previewFile && <div className="preview-backdrop" role="presentation" onClick={() => setPreviewFile(null)}><section className="preview-modal" role="dialog" aria-modal="true" aria-label={previewFile.original_name ?? 'Предпросмотр файла'} onClick={(event) => event.stopPropagation()}><header><strong>{previewFile.original_name ?? 'Файл'}</strong><button type="button" className="preview-close" onClick={() => setPreviewFile(null)} aria-label="Закрыть">×</button></header>{previewFile.image_url && isPreviewable(previewFile) ?       <FilePreview file={previewFile} token={token} expanded /> : <div className="preview-non-image"><span className="file-icon large">↗</span><p className="muted">Предпросмотр недоступен для этого типа файла.</p></div>}<a className="download-button" href={fileUrl(previewFile)} download={previewFile.original_name}>Скачать файл</a></section></div>}
     </main>
   )
 }
