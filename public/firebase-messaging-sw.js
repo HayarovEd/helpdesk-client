@@ -14,6 +14,7 @@ firebase.initializeApp({
 const messaging = firebase.messaging()
 
 messaging.onBackgroundMessage((payload) => {
+  if (payload.notification) return
   const title = payload.notification?.title || payload.data?.title || 'Новое сообщение'
   const body = payload.notification?.body || payload.data?.body || 'В чате появилось новое сообщение'
   self.registration.showNotification(title, {

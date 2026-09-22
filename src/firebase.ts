@@ -26,13 +26,13 @@ export async function registerFirebaseMessaging(
     throw new Error('Браузер не поддерживает push-уведомления')
   }
 
-  if (!(await isSupported())) {
-    throw new Error('Firebase Messaging не поддерживается этим браузером')
-  }
-
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') {
     throw new Error('Разрешение на push-уведомления не предоставлено')
+  }
+
+  if (!(await isSupported())) {
+    throw new Error('Firebase Messaging не поддерживается этим браузером')
   }
 
   const serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js')

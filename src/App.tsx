@@ -258,28 +258,45 @@ function ChatPage({
 
   useEffect(() => {
     if (!token || !chat?.id || notificationStartedRef.current) return
-    notificationStartedRef.current = true
 
-    registerFirebaseMessaging((notification) => {
-      if (notification.title || notification.body) {
-        new Notification(notification.title ?? 'Новое сообщение', {
-          body: notification.body,
-          icon: '/favicon.svg',
+    let disposed = false
+    const setupNotifications = async () => {
+      if (disposed || notificationStartedRef.current) return
+      notificationStartedRef.current = true
+      try {
+        const { fcmToken, unsubscribe } = await registerFirebaseMessaging((notification) => {
+          if (notification.title || notification.body) {
+            new Notification(notification.title ?? 'Новое сообщение', {
+              body: notification.body,
+              icon: '/favicon.svg',
+            })
+          }
         })
-      }
-    })
-      .then(({ fcmToken, unsubscribe }) => {
-        notificationUnsubscribeRef.current = unsubscribe
-        return registerFcmToken({
+        await registerFcmToken({
           token: fcmToken,
           device_id: getWebDeviceId(),
           device_name: navigator.userAgent,
           platform: 'FCM',
         }, token)
-      })
-      .catch(() => {
+        notificationUnsubscribeRef.current = unsubscribe
+        window.removeEventListener('pointerdown', retryOnInteraction)
+        window.removeEventListener('keydown', retryOnInteraction)
+      } catch {
         notificationStartedRef.current = false
-      })
+      }
+    }
+    const retryOnInteraction = () => {
+      void setupNotifications()
+    }
+
+    void setupNotifications()
+    window.addEventListener('pointerdown', retryOnInteraction, { once: true })
+    window.addEventListener('keydown', retryOnInteraction, { once: true })
+    return () => {
+      disposed = true
+      window.removeEventListener('pointerdown', retryOnInteraction)
+      window.removeEventListener('keydown', retryOnInteraction)
+    }
   }, [chat?.id, token])
 
   useEffect(() => () => {
