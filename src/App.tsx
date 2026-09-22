@@ -9,10 +9,12 @@ import {
   loginFromApp,
   loginUnregistered,
   logout,
+  registerFcmToken,
   sendMessage,
   UNREGISTERED_GROUP_ID,
 } from './api'
 import type { Chat, ChatCreateInput, ExternalAuthInput, HelpdeskFile, ManualAuthInput, UnregisteredAuthInput } from './api'
+import { registerFirebaseMessaging } from './firebase'
 import './App.css'
 
 const allowedHostOrigin = import.meta.env.VITE_HOST_ORIGIN ?? ''
@@ -33,6 +35,15 @@ const initialUnregisteredProfile: UnregisteredAuthInput = {
   name: '',
   email: '',
   phone: '',
+}
+
+function getWebDeviceId() {
+  const storageKey = 'helpdesk-web-device-id'
+  const existingId = window.localStorage.getItem(storageKey)
+  if (existingId) return existingId
+  const deviceId = crypto.randomUUID()
+  window.localStorage.setItem(storageKey, deviceId)
+  return deviceId
 }
 
 function flattenMessages(chat: Chat | null) {
@@ -202,6 +213,7 @@ function ChatPage({
   const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [notificationError, setNotificationError] = useState('')
   const [previewFile, setPreviewFile] = useState<HelpdeskFile | null>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
 
@@ -242,6 +254,40 @@ function ChatPage({
       cancelled = true
     }
   }, [initialChat, profile.login, token])
+
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    let unsubscribe: (() => void) | undefined
+
+    registerFirebaseMessaging((notification) => {
+      if (notification.title || notification.body) {
+        new Notification(notification.title ?? 'Новое сообщение', {
+          body: notification.body,
+          icon: '/favicon.svg',
+        })
+      }
+    })
+      .then(({ fcmToken, unsubscribe: stopListening }) => {
+        unsubscribe = stopListening
+        return registerFcmToken({
+          token: fcmToken,
+          device_id: getWebDeviceId(),
+          device_name: navigator.userAgent,
+          platform: 'web',
+        }, token)
+      })
+      .catch((cause) => {
+        if (!cancelled) {
+          setNotificationError(cause instanceof Error ? cause.message : 'Не удалось включить push-уведомления')
+        }
+      })
+
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
+  }, [token])
 
   useEffect(() => {
     async function receiveHostAuth(event: MessageEvent<{
@@ -445,7 +491,7 @@ function ChatPage({
     <main className="shell">
       <section className="widget card">
         <header className="widget-header">
-          <div><div className="brand"><span className="brand-mark">?</span><span>Helpdesk</span></div><p className="muted">Поддержка онлайн</p></div>
+          <div><div className="brand"><span className="brand-mark">?</span><span>Helpdesk</span></div><p className="muted">Поддержка онлайн</p>{notificationError && <p className="error">{notificationError}</p>}</div>
           <div className="header-actions">
             {chat && <span className={`status ${chat.is_open === false ? 'closed' : ''}`}>{chat.is_open === false ? 'Закрыт' : 'Открыт'}</span>}
             <button className="logout-button" onClick={handleLogout}>Выйти</button>

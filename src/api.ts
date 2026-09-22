@@ -47,6 +47,13 @@ export type ChatCreateInput = {
 
 export const UNREGISTERED_GROUP_ID = '00000000-0000-0000-0000-000000000009'
 
+export type FcmTokenRegistration = {
+  token: string
+  device_id?: string
+  device_name?: string
+  platform?: string
+}
+
 export type Message = {
   id?: string
   text: string
@@ -151,4 +158,12 @@ export async function sendMessage(id: string, text: string, token: string, files
 
 export async function logout(token: string) {
   return request<void>('/api/auth/logout', { method: 'POST', token })
+}
+
+export async function registerFcmToken(input: FcmTokenRegistration, token: string) {
+  return request<void>('/api/fcm/register-token', {
+    method: 'POST',
+    token,
+    body: JSON.stringify(input),
+  })
 }

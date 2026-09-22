@@ -24,6 +24,15 @@ http://localhost:5173/unregistered-login
 VITE_API_BASE_URL=
 
 VITE_HOST_ORIGIN=https://your-host.example
+
+# Необязательно: Firebase Web config и VAPID key можно переопределить через env.
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+VITE_FIREBASE_VAPID_KEY=
 ```
 
 Сообщения отправляются через `multipart/form-data`: JSON части `data` содержит `{ "text": "..." }`, а выбранные файлы передаются отдельными частями `files`. Это необходимо, потому что backend принимает сообщение через `@RequestPart`.
@@ -75,6 +84,27 @@ window.addEventListener('message', (event) => {
 После загрузки чата клиент подключается к `ws://10.222.222.174:9092/ws/chats/{chatId}/messages`. Токен WebSocket не используется. Обновления применяются только для событий с `event: "UPDATED"` и путём `/chats...`; при разрыве соединение переподключается через 5 секунд. Для другого адреса можно задать `VITE_WEBSOCKET_BASE_URL`.
 
 Для конфигурации Android-формата задайте `VITE_WEB_SOCKET_URL=ws://10.222.222.174:9092/ws`; клиент сам добавит `/chats/{chatId}/messages`.
+
+## Push-уведомления Firebase
+
+После успешной авторизации клиент запрашивает разрешение браузера на уведомления, получает FCM Web Push token и регистрирует его на backend:
+
+```http
+POST /api/fcm/register-token
+Authorization: Bearer <JWT>
+Content-Type: application/json
+```
+
+```json
+{
+  "token": "<FCM token>",
+  "device_id": "<стабильный идентификатор браузера>",
+  "device_name": "<user agent>",
+  "platform": "web"
+}
+```
+
+В foreground уведомление показывается браузером сразу. В background его показывает `public/firebase-messaging-sw.js`. Для production сайт должен работать через HTTPS; `localhost` разрешён браузерами для разработки. Firebase Web config и VAPID key являются публичными web-настройками и могут быть переопределены через `.env.local`.
 
 ## Отдельная авторизация незарегистрированного пользователя
 
