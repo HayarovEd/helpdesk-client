@@ -26,7 +26,9 @@ export async function registerFirebaseMessaging(
     throw new Error('Браузер не поддерживает push-уведомления')
   }
 
-  const permission = await Notification.requestPermission()
+  const permission = Notification.permission === 'granted'
+    ? 'granted'
+    : await Notification.requestPermission()
   if (permission !== 'granted') {
     throw new Error('Разрешение на push-уведомления не предоставлено')
   }
@@ -35,13 +37,26 @@ export async function registerFirebaseMessaging(
     throw new Error('Firebase Messaging не поддерживается этим браузером')
   }
 
-  const serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
-  const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
-  const messaging = getMessaging(app)
-  const fcmToken = await getToken(messaging, {
-    vapidKey,
-    serviceWorkerRegistration,
-  })
+  let serviceWorkerRegistration: ServiceWorkerRegistration
+  try {
+    serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+    await navigator.serviceWorker.ready
+  } catch (cause) {
+    throw new Error(`Не удалось зарегистрировать Firebase service worker: ${formatError(cause)}`)
+  }
+
+  let fcmToken: string
+  let messaging: ReturnType<typeof getMessaging>
+  try {
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig)
+    messaging = getMessaging(app)
+    fcmToken = await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration,
+    })
+  } catch (cause) {
+    throw new Error(`Не удалось получить FCM-токен: ${formatError(cause)}`)
+  }
 
   if (!fcmToken) throw new Error('Firebase не вернул push-токен')
 
@@ -53,4 +68,9 @@ export async function registerFirebaseMessaging(
   })
 
   return { fcmToken, unsubscribe }
+}
+
+function formatError(cause: unknown) {
+  if (cause instanceof Error) return cause.message
+  return String(cause)
 }

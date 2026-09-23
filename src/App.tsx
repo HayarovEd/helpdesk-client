@@ -282,17 +282,24 @@ function ChatPage({
         notificationUnsubscribeRef.current = unsubscribe
         window.removeEventListener('pointerdown', retryOnInteraction)
         window.removeEventListener('keydown', retryOnInteraction)
-      } catch {
+      } catch (cause) {
         notificationStartedRef.current = false
+        const message = cause instanceof Error ? cause.message : String(cause)
         const permission = 'Notification' in window ? Notification.permission : 'unsupported'
-        if (window.self !== window.top) {
+        let isIframe = false
+        try {
+          isIframe = window.self !== window.top
+        } catch {
+          isIframe = true
+        }
+        if (isIframe) {
           setNotificationError('Уведомления в iframe должен разрешить родительский сайт. Откройте чат в отдельной вкладке или добавьте allow="notifications" для iframe.')
         } else if (permission === 'denied') {
           setNotificationError('Уведомления заблокированы в настройках браузера для этого сайта.')
         } else if (!window.isSecureContext) {
           setNotificationError('Push-уведомления работают только через HTTPS или на localhost.')
         } else {
-          setNotificationError('Не удалось зарегистрировать push-уведомления. Проверьте Console браузера и регистрацию FCM-токена.')
+          setNotificationError(`Не удалось зарегистрировать push-уведомления: ${message}`)
         }
       }
     }
