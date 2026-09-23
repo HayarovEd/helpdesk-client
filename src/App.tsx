@@ -276,7 +276,7 @@ function ChatPage({
         await registerFcmToken({
           token: fcmToken,
           device_id: getWebDeviceId(),
-          device_name: navigator.userAgent,
+          device_name: navigator.userAgent.slice(0, 100),
           platform: 'FCM',
         }, token)
         notificationUnsubscribeRef.current = unsubscribe
