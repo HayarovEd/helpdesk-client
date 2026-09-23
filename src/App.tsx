@@ -37,6 +37,29 @@ const initialUnregisteredProfile: UnregisteredAuthInput = {
   phone: '',
 }
 
+const sessionStorageKey = 'helpdesk-session'
+type StoredSession = {
+  token: string
+  profile: ManualAuthInput
+  chat: Chat | null
+  authMode: 'external' | 'unregistered'
+}
+
+function readStoredSession(): StoredSession | null {
+  try {
+    const value = sessionStorage.getItem(sessionStorageKey)
+    if (!value) return null
+    const session = JSON.parse(value) as StoredSession
+    return session.token && session.profile && session.authMode ? session : null
+  } catch {
+    return null
+  }
+}
+
+function clearStoredSession() {
+  sessionStorage.removeItem(sessionStorageKey)
+}
+
 function getWebDeviceId() {
   const storageKey = 'helpdesk-web-device-id'
   const existingId = window.localStorage.getItem(storageKey)
@@ -188,8 +211,15 @@ function FilePreview({ file, token, expanded = false }: { file: HelpdeskFile; to
 }
 
 function App() {
+  const storedSession = readStoredSession()
   if (window.location.pathname === unregisteredPath) {
+    if (storedSession?.authMode === 'unregistered') {
+      return <ChatPage initialToken={storedSession.token} initialProfile={storedSession.profile} initialChat={storedSession.chat} authMode={storedSession.authMode} />
+    }
     return <UnregisteredLoginPage />
+  }
+  if (storedSession) {
+    return <ChatPage initialToken={storedSession.token} initialProfile={storedSession.profile} initialChat={storedSession.chat} authMode={storedSession.authMode} />
   }
   return <ChatPage />
 }
@@ -220,6 +250,16 @@ function ChatPage({
   const messagesRef = useRef<HTMLDivElement>(null)
 
   const messages = useMemo(() => flattenMessages(chat), [chat])
+
+  useEffect(() => {
+    if (!token || sessionAuthMode === 'none') return
+    sessionStorage.setItem(sessionStorageKey, JSON.stringify({
+      token,
+      profile: { ...profile, password: '', token: '' },
+      chat,
+      authMode: sessionAuthMode,
+    }))
+  }, [chat, profile, sessionAuthMode, token])
 
   useEffect(() => {
     const container = messagesRef.current
@@ -481,6 +521,7 @@ function ChatPage({
     setText('')
     setFiles([])
     setPreviewFile(null)
+    clearStoredSession()
     if (sessionAuthMode === 'unregistered') {
       window.location.assign(unregisteredPath)
       return
