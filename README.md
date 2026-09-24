@@ -35,6 +35,15 @@ VITE_FIREBASE_APP_ID=
 VITE_FIREBASE_VAPID_KEY=
 ```
 
+Для production используется `.env.production`:
+
+```env
+VITE_API_BASE_URL=https://helpdesk.impuls-perm.ru
+VITE_WEB_SOCKET_URL=wss://helpdesk.impuls-perm.ru/
+```
+
+Итоговый WebSocket-адрес чата будет иметь вид `wss://helpdesk.impuls-perm.ru/ws/chats/{chatId}/messages`.
+
 Сообщения отправляются через `multipart/form-data`: JSON части `data` содержит `{ "text": "..." }`, а выбранные файлы передаются отдельными частями `files`. Это необходимо, потому что backend принимает сообщение через `@RequestPart`.
 
 В чате поддерживается предпросмотр изображений, PDF, TXT/RTF и видео (`mp4`, `mpeg`, `ogg`, `webm`, `mov`, `avi`, `mkv`, `mp2t`) с увеличением в модальном окне. DOC/DOCX, XLS/XLSX и PPT/PPTX показываются как доступные для открытия/скачивания документы; их встроенный просмотр требует конвертера на backend или внешнего viewer-сервиса.
@@ -81,9 +90,9 @@ window.addEventListener('message', (event) => {
 })
 ```
 
-После загрузки чата клиент подключается к `ws://10.222.222.174:9092/ws/chats/{chatId}/messages`. Токен WebSocket не используется. Обновления применяются только для событий с `event: "UPDATED"` и путём `/chats...`; при разрыве соединение переподключается через 5 секунд. Для другого адреса можно задать `VITE_WEBSOCKET_BASE_URL`.
+После загрузки чата клиент подключается к WebSocket-адресу из `VITE_WEB_SOCKET_URL`. Для production это `wss://helpdesk.impuls-perm.ru/ws/chats/{chatId}/messages`, для dev используется адрес из локальной конфигурации. Токен WebSocket не используется. Обновления применяются только для событий с `event: "UPDATED"` и путём `/chats...`; при разрыве соединение переподключается через 5 секунд.
 
-Для конфигурации Android-формата задайте `VITE_WEB_SOCKET_URL=ws://10.222.222.174:9092/ws`; клиент сам добавит `/chats/{chatId}/messages`.
+Клиент сам добавляет `/ws/chats/{chatId}/messages` к базовому адресу WebSocket, если в нём ещё нет пути `/ws`.
 
 ## Push-уведомления Firebase
 
